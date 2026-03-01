@@ -10,6 +10,8 @@ import '../theme/app_theme.dart';
 import '../widgets/habit_item.dart';
 import '../widgets/task_item_widget.dart';
 import '../widgets/goal_card.dart';
+import '../widgets/task_heatmap.dart';
+import '../widgets/squircle_card.dart';
 
 class OrganizerScreen extends StatefulWidget {
   const OrganizerScreen({super.key});
@@ -37,7 +39,8 @@ class OrganizerScreenState extends State<OrganizerScreen> {
 
     if (mounted) {
       setState(() {
-        _habits = _storageService.getHabits();
+        _habits =
+            _storageService.getHabits().where((h) => !h.isArchived).toList();
         _tasks =
             _storageService.getTasks().where((t) => !t.isArchived).toList();
         _goals = _storageService
@@ -83,6 +86,15 @@ class OrganizerScreenState extends State<OrganizerScreen> {
                 ),
               ),
 
+              // Aggregate Task & Habit Heatmap
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: SquircleCard(
+                  padding: EdgeInsets.zero,
+                  child: const TaskHeatmap(),
+                ),
+              ),
+
               // Goals Views
               ..._buildGoalSection('Weekly Goals', weeklyGoals),
               ..._buildGoalSection('Monthly Goals', monthlyGoals),
@@ -90,15 +102,30 @@ class OrganizerScreenState extends State<OrganizerScreen> {
 
               // Checklists
               if (_tasks.isNotEmpty || _habits.isNotEmpty)
-                const Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-                  child: Text(
-                    'Today',
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.5),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24.0, vertical: 16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'Today',
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5),
+                      ),
+                      Text(
+                        '${_tasks.where((t) => t.isCompleted).length + _habits.where((h) => h.isCompleted).length} / ${_tasks.length + _habits.length}',
+                        style: const TextStyle(
+                          color: Color(0xFFAEAEB2),
+                          fontFamily: '.SF Pro Rounded',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 

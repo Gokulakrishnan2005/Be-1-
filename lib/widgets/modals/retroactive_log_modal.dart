@@ -5,11 +5,13 @@ import '../haptic_wrapper.dart';
 class RetroactiveLogModal extends StatefulWidget {
   final String categoryName;
   final Function(Duration) onLog;
+  final VoidCallback onDeleteLastLog;
 
   const RetroactiveLogModal({
     super.key,
     required this.categoryName,
     required this.onLog,
+    required this.onDeleteLastLog,
   });
 
   @override
@@ -91,6 +93,22 @@ class _RetroactiveLogModalState extends State<RetroactiveLogModal> {
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: AppTheme.pureCeramicWhite)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: CupertinoButton(
+              borderRadius: BorderRadius.circular(16),
+              onPressed: () {
+                HapticWrapper.heavy();
+                widget.onDeleteLastLog();
+                Navigator.pop(context);
+              },
+              child: const Text('Delete Last Log',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: CupertinoColors.destructiveRed)),
             ),
           ),
         ],

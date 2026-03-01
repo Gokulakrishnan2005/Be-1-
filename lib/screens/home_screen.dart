@@ -28,7 +28,7 @@ class HomeScreenState extends State<HomeScreen> {
 
   void _loadSkills() {
     setState(() {
-      _skills = _storageService.getSkills();
+      _skills = _storageService.getSkills(); // Already sorted by orderIndex ASC
     });
   }
 
@@ -60,14 +60,14 @@ class HomeScreenState extends State<HomeScreen> {
             physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics()),
             slivers: [
-              SliverToBoxAdapter(
+              const SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.only(
+                  padding: EdgeInsets.only(
                       left: 24.0, right: 24.0, top: 40.0, bottom: 24.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -90,13 +90,13 @@ class HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      const DayRingChart(),
+                      DayRingChart(),
                     ],
                   ),
                 ),
               ),
               if (_skills.isEmpty)
-                SliverFillRemaining(
+                const SliverFillRemaining(
                   child: Center(
                     child: Text(
                       'No skills yet.\nTap + to add your first domain.',

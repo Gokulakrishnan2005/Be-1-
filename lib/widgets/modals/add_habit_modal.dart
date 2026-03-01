@@ -70,6 +70,7 @@ class _AddHabitModalState extends State<AddHabitModal> {
           CupertinoTextField(
             controller: _nameController,
             placeholder: 'Habit Name (e.g. Meditate for 10m)',
+            style: const TextStyle(color: AppTheme.systemBlack),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppTheme.pureCeramicWhite,

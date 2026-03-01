@@ -20,6 +20,7 @@ class EditTransactionModal extends StatefulWidget {
 class _EditTransactionModalState extends State<EditTransactionModal> {
   late final TextEditingController _titleController;
   late final TextEditingController _amountController;
+  late final TextEditingController _categoryController;
   late TransactionType _selectedType;
 
   @override
@@ -28,6 +29,8 @@ class _EditTransactionModalState extends State<EditTransactionModal> {
     _titleController = TextEditingController(text: widget.transaction.title);
     _amountController = TextEditingController(
         text: widget.transaction.amount.toStringAsFixed(2));
+    _categoryController =
+        TextEditingController(text: widget.transaction.category ?? '');
     _selectedType = widget.transaction.type;
   }
 
@@ -46,6 +49,9 @@ class _EditTransactionModalState extends State<EditTransactionModal> {
         amount: amount,
         date: widget.transaction.date,
         type: _selectedType,
+        category: _categoryController.text.trim().isNotEmpty
+            ? _categoryController.text.trim()
+            : null,
       );
 
       await storage.saveTransaction(updatedTx);
@@ -121,6 +127,18 @@ class _EditTransactionModalState extends State<EditTransactionModal> {
           CupertinoTextField(
             controller: _titleController,
             placeholder: 'Description (e.g. Salary, Coffee)',
+            style: const TextStyle(color: AppTheme.systemBlack),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.pureCeramicWhite,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          const SizedBox(height: 16),
+          CupertinoTextField(
+            controller: _categoryController,
+            placeholder: 'Category (e.g. Food, Transport) - Optional',
+            style: const TextStyle(color: AppTheme.systemBlack),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppTheme.pureCeramicWhite,
@@ -132,6 +150,7 @@ class _EditTransactionModalState extends State<EditTransactionModal> {
             controller: _amountController,
             placeholder: 'Amount (e.g. 50.00)',
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: const TextStyle(color: AppTheme.systemBlack),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppTheme.pureCeramicWhite,

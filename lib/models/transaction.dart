@@ -1,4 +1,4 @@
-enum TransactionType { income, expense, savings }
+enum TransactionType { income, expense, savings, transfer }
 
 class TransactionItem {
   final String id;
@@ -7,6 +7,7 @@ class TransactionItem {
   final DateTime date;
   final TransactionType type;
   final String? linkedWishlistId;
+  final String? category;
 
   TransactionItem({
     required this.id,
@@ -15,6 +16,7 @@ class TransactionItem {
     required this.date,
     required this.type,
     this.linkedWishlistId,
+    this.category,
   });
 
   Map<String, dynamic> toJson() => {
@@ -24,6 +26,7 @@ class TransactionItem {
         'date': date.toIso8601String(),
         'type': type.index,
         'linkedWishlistId': linkedWishlistId,
+        'category': category,
       };
 
   factory TransactionItem.fromJson(Map<String, dynamic> json) =>
@@ -34,5 +37,6 @@ class TransactionItem {
         date: DateTime.parse(json['date']),
         type: TransactionType.values[json['type']],
         linkedWishlistId: json['linkedWishlistId'],
+        category: json['category'],
       );
 }

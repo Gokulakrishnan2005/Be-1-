@@ -146,8 +146,8 @@ class _SkillAnalyticsHeatmapState extends State<SkillAnalyticsHeatmap> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Y-Axis Labels
-          Padding(
-            padding: const EdgeInsets.only(
+          const Padding(
+            padding: EdgeInsets.only(
                 left: 16.0,
                 right: 8.0,
                 top: 16.0), // top padding pushes below month labels
@@ -156,25 +156,25 @@ class _SkillAnalyticsHeatmapState extends State<SkillAnalyticsHeatmap> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text('',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 10, color: AppTheme.systemGray)), // Sun (0)
                 Text('M',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 10, color: AppTheme.systemGray)), // Mon (1)
                 Text('',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 10, color: AppTheme.systemGray)), // Tue (2)
                 Text('W',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 10, color: AppTheme.systemGray)), // Wed (3)
                 Text('',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 10, color: AppTheme.systemGray)), // Thu (4)
                 Text('F',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 10, color: AppTheme.systemGray)), // Fri (5)
                 Text('',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 10, color: AppTheme.systemGray)), // Sat (6)
               ],
             ),

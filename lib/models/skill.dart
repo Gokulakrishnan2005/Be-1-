@@ -4,6 +4,7 @@ class Skill {
   final String iconName;
   final int targetHours;
   final String category; // 'GROWTH', 'MAINTENANCE', 'ENTROPY'
+  final int orderIndex;
 
   Skill({
     required this.id,
@@ -11,6 +12,7 @@ class Skill {
     required this.iconName,
     required this.targetHours,
     this.category = 'GROWTH',
+    this.orderIndex = 99,
   });
 
   Map<String, dynamic> toJson() => {
@@ -19,6 +21,7 @@ class Skill {
         'iconName': iconName,
         'targetHours': targetHours,
         'category': category,
+        'orderIndex': orderIndex,
       };
 
   factory Skill.fromJson(Map<String, dynamic> json) => Skill(
@@ -27,5 +30,6 @@ class Skill {
         iconName: json['iconName'],
         targetHours: json['targetHours'],
         category: json['category'] ?? 'GROWTH',
+        orderIndex: json['orderIndex'] ?? 99,
       );
 }

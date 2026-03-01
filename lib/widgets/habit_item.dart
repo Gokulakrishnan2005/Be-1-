@@ -56,17 +56,45 @@ class _HabitItemState extends State<HabitItem>
     super.dispose();
   }
 
-  bool _isSameDay(DateTime date1, DateTime date2) {
-    return date1.year == date2.year &&
-        date1.month == date2.month &&
-        date1.day == date2.day;
-  }
-
   void _toggle() async {
-    if (_isChecked)
-      return; // Prevent unchecking for simplicity/stoic philosophy
+    final storage = context.read<StorageService>();
+    final now = DateTime.now();
+    final todayStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
-    final newStreak = widget.habit.streak + 1; // Assuming checking it adds 1
+    if (_isChecked) {
+      // ─── UNDO: Uncheck → decrement streak, remove today's date ──
+      HapticWrapper.light();
+      _controller.forward(from: 0.0);
+
+      setState(() {
+        _isChecked = false;
+      });
+
+      final updatedDates = List<String>.from(widget.habit.completedDates);
+      updatedDates.remove(todayStr);
+
+      final newStreak = (widget.habit.streak - 1).clamp(0, 999999);
+
+      final updatedHabit = Habit(
+        id: widget.habit.id,
+        name: widget.habit.name,
+        iconCode: widget.habit.iconCode,
+        isCompleted: false,
+        streak: newStreak,
+        createdAt: widget.habit.createdAt,
+        isArchived: widget.habit.isArchived,
+        archivedAt: widget.habit.archivedAt,
+        completedDates: updatedDates,
+      );
+
+      await storage.saveHabit(updatedHabit);
+      widget.onToggle();
+      return;
+    }
+
+    // ─── CHECK: Normal forward toggle ──
+    final newStreak = widget.habit.streak + 1;
     if (newStreak >= 7) {
       HapticWrapper.heavy();
     } else {
@@ -79,37 +107,24 @@ class _HabitItemState extends State<HabitItem>
       _isChecked = true;
     });
 
-    final storage = context.read<StorageService>();
-    final now = DateTime.now();
-    bool wasCheckedToday = false;
-    if (widget.habit.isCompleted) {
-      wasCheckedToday = _isSameDay(widget.habit.createdAt,
-          now); // Since sweep resets isCompleted to false
+    final updatedDates = List<String>.from(widget.habit.completedDates);
+    if (!updatedDates.contains(todayStr)) {
+      updatedDates.add(todayStr);
     }
 
-    if (!_isChecked) {
-      // This condition will always be false due to setState above, but keeping structure from original intent
-      await storage.saveHabit(Habit(
-        id: widget.habit.id,
-        name: widget.habit.name,
-        iconCode: widget.habit.iconCode,
-        isCompleted: true,
-        streak: widget.habit.streak + (wasCheckedToday ? 0 : 1),
-        createdAt: widget.habit.createdAt,
-      ));
-    } else {
-      await storage.saveHabit(Habit(
-        id: widget.habit.id,
-        name: widget.habit.name,
-        iconCode: widget.habit.iconCode,
-        isCompleted: false,
-        streak: widget.habit.streak > 0 && !wasCheckedToday
-            ? widget.habit.streak - 1
-            : widget.habit.streak,
-        createdAt: widget.habit.createdAt,
-      ));
-    }
+    final updatedHabit = Habit(
+      id: widget.habit.id,
+      name: widget.habit.name,
+      iconCode: widget.habit.iconCode,
+      isCompleted: true,
+      streak: newStreak,
+      createdAt: widget.habit.createdAt,
+      isArchived: widget.habit.isArchived,
+      archivedAt: widget.habit.archivedAt,
+      completedDates: updatedDates,
+    );
 
+    await storage.saveHabit(updatedHabit);
     widget.onToggle();
   }
 
@@ -159,10 +174,33 @@ class _HabitItemState extends State<HabitItem>
       direction: DismissDirection.endToStart,
       confirmDismiss: (direction) async {
         HapticWrapper.heavy();
+        final confirm = await showCupertinoDialog<bool>(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: const Text('Archive Habit?'),
+            content: const Text(
+                'This habit will be moved to the Graveyard in Habit Analytics. You can permanently delete it there.'),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('Cancel',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: CupertinoColors.activeBlue)),
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+              CupertinoDialogAction(
+                isDestructiveAction: true,
+                child: const Text('Archive'),
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+            ],
+          ),
+        );
+
+        if (confirm != true) return false;
+
         final storage = context.read<StorageService>();
-        var habits = storage.getHabits();
-        habits.removeWhere((h) => h.id == widget.habit.id);
-        await storage.saveAllHabits(habits);
+        await storage.archiveHabit(widget.habit.id);
         return true;
       },
       onDismissed: (direction) {

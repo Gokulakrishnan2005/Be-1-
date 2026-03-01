@@ -105,7 +105,7 @@ class AccomplishedHistoryScreen extends StatelessWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   'Completed on ${date.month}/${date.day}/${date.year} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     color: AppTheme.systemGray,
                                   ),

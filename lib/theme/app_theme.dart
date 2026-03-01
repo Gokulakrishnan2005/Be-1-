@@ -23,9 +23,12 @@ class AppTheme {
 
   // Three States of Matter
   static const Color stateGrowth = Color(0xFF34C759); // Green
-  static const Color stateMaintenance = Color(0xFF8E8E93); // Grey
+  static const Color stateMaintenance = Color(0xFF5856D6); // Slate Blue
   static const Color stateEntropy = Color(0xFFFF9500); // Orange
   static const Color systemOrange = Color(0xFFFF9500);
+
+  // Void Black for untracked time segments
+  static const Color voidBlack = Color(0xFF1C1C1E);
 
   // System Red (#FF3B30) for negative balances.
   static const Color systemRed = Color(0xFFFF3B30);
@@ -43,6 +46,7 @@ class AppTheme {
       BorderRadius.circular(squircleRadius);
 
   static const CupertinoThemeData cupertinoTheme = CupertinoThemeData(
+    brightness: Brightness.light,
     primaryColor: focusBlue,
     scaffoldBackgroundColor: systemGray6,
     textTheme: CupertinoTextThemeData(

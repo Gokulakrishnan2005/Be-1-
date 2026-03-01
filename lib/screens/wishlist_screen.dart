@@ -33,11 +33,10 @@ class _WishlistScreenState extends State<WishlistScreen> {
     });
   }
 
+  // ─── MARK AS BOUGHT ───────────────────────────────────────────
   void _markAsBought(WishlistItem item, double liquidBalance) async {
-    if (item.isBought)
-      return; // Cannot un-buy from here, or maybe can? Let's keep toggle if bought.
+    if (item.isBought) return;
 
-    // If we are buying and we don't have enough funds
     if (!item.isBought && liquidBalance < item.price) {
       final proceed = await showCupertinoModalPopup<bool>(
         context: context,
@@ -49,25 +48,18 @@ class _WishlistScreenState extends State<WishlistScreen> {
           actions: <CupertinoActionSheetAction>[
             CupertinoActionSheetAction(
               isDestructiveAction: true,
-              onPressed: () {
-                Navigator.pop(context, true);
-              },
+              onPressed: () => Navigator.pop(context, true),
               child: const Text('Proceed'),
             ),
           ],
           cancelButton: CupertinoActionSheetAction(
             isDefaultAction: true,
-            onPressed: () {
-              Navigator.pop(context, false);
-            },
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
         ),
       );
-
-      if (proceed != true) {
-        return; // User cancelled
-      }
+      if (proceed != true) return;
     }
 
     _processPurchase(item);
@@ -75,9 +67,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
 
   void _processPurchase(WishlistItem item) async {
     HapticWrapper.heavy();
-
     final isNewlyBought = !item.isBought;
-
     final updatedItem = WishlistItem(
       id: item.id,
       title: item.title,
@@ -87,12 +77,9 @@ class _WishlistScreenState extends State<WishlistScreen> {
     );
 
     int idx = _items.indexWhere((i) => i.id == item.id);
-    if (idx != -1) {
-      _items[idx] = updatedItem;
-    }
+    if (idx != -1) _items[idx] = updatedItem;
 
     if (isNewlyBought) {
-      // Deduct from ledger
       final newTx = TransactionItem(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         title: '[Wishlist] ${item.title}',
@@ -109,6 +96,213 @@ class _WishlistScreenState extends State<WishlistScreen> {
     _loadData();
   }
 
+  // ─── DELETE ITEM ──────────────────────────────────────────────
+  Future<void> _deleteItem(WishlistItem item) async {
+    if (item.isBought) {
+      // Ask if they want to undo the linked expense
+      final undoExpense = await showCupertinoModalPopup<bool>(
+        context: context,
+        builder: (ctx) => CupertinoActionSheet(
+          title: Text('Delete "${item.title}"?',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          message: const Text(
+              'This item was already purchased. Do you also want to undo the associated expense in Finance?'),
+          actions: [
+            CupertinoActionSheetAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete & Undo Expense'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Delete (Keep Financial Record)'),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Cancel'),
+          ),
+        ),
+      );
+
+      if (undoExpense == null) return; // Cancelled
+
+      if (undoExpense) {
+        // Remove linked transaction from finance
+        final txs = _storageService.getTransactions();
+        final linkedTx = txs.where((t) => t.linkedWishlistId == item.id);
+        for (final tx in linkedTx) {
+          await _storageService.deleteTransaction(tx.id);
+        }
+      }
+    } else {
+      // Simple confirmation for active items
+      final confirm = await showCupertinoModalPopup<bool>(
+        context: context,
+        builder: (ctx) => CupertinoActionSheet(
+          title: Text('Delete "${item.title}"?',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          message: const Text('This item will be permanently removed.'),
+          actions: [
+            CupertinoActionSheetAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete'),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+        ),
+      );
+      if (confirm != true) return;
+    }
+
+    HapticWrapper.heavy();
+    _items.removeWhere((i) => i.id == item.id);
+    await _storageService
+        .saveWishlistRaw(_items.map((i) => i.toJson()).toList());
+    _loadData();
+  }
+
+  // ─── EDIT ITEM ────────────────────────────────────────────────
+  void _showEditItemModal(WishlistItem item) {
+    final titleCtrl = TextEditingController(text: item.title);
+    final priceCtrl =
+        TextEditingController(text: item.price.toStringAsFixed(0));
+
+    showCupertinoModalPopup(
+      context: context,
+      barrierColor: AppTheme.systemBlack.withAlpha(100),
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppTheme.systemGray6,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+          ),
+          padding: EdgeInsets.only(
+            top: 24,
+            left: 24,
+            right: 24,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Edit Wish',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.systemBlack,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              CupertinoTextField(
+                controller: titleCtrl,
+                placeholder: 'Item Name (e.g. MacBook Pro)',
+                placeholderStyle: TextStyle(
+                  color: AppTheme.systemBlack.withOpacity(0.4),
+                ),
+                style: const TextStyle(color: AppTheme.systemBlack),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.pureCeramicWhite,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              const SizedBox(height: 16),
+              CupertinoTextField(
+                controller: priceCtrl,
+                placeholder: 'Est. Cost (e.g. 1999)',
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                enabled: !item.isBought, // Disable price edit for bought items
+                style: TextStyle(
+                  color: item.isBought
+                      ? AppTheme.systemGray
+                      : AppTheme.systemBlack,
+                ),
+                placeholderStyle: TextStyle(
+                  color: AppTheme.systemBlack.withOpacity(0.4),
+                ),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: item.isBought
+                      ? AppTheme.systemGray6
+                      : AppTheme.pureCeramicWhite,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                prefix: Padding(
+                  padding: const EdgeInsets.only(left: 16.0),
+                  child: Text('₹',
+                      style: TextStyle(
+                          color: item.isBought
+                              ? AppTheme.systemGray.withOpacity(0.4)
+                              : AppTheme.systemGray,
+                          fontSize: 18)),
+                ),
+              ),
+              if (item.isBought)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8, left: 4),
+                  child: Text(
+                    'Price is locked for purchased items.',
+                    style: TextStyle(
+                      color: AppTheme.systemGray,
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: CupertinoButton(
+                  color: AppTheme.systemBlack,
+                  borderRadius: BorderRadius.circular(16),
+                  onPressed: () async {
+                    final title = titleCtrl.text.trim();
+                    final price = double.tryParse(priceCtrl.text) ?? item.price;
+                    if (title.isNotEmpty) {
+                      HapticWrapper.medium();
+                      final updatedItem = WishlistItem(
+                        id: item.id,
+                        title: title,
+                        price: item.isBought ? item.price : price,
+                        isBought: item.isBought,
+                        createdAt: item.createdAt,
+                      );
+                      int idx = _items.indexWhere((i) => i.id == item.id);
+                      if (idx != -1) _items[idx] = updatedItem;
+                      await _storageService.saveWishlistRaw(
+                          _items.map((i) => i.toJson()).toList());
+                      if (ctx.mounted) Navigator.of(ctx).pop();
+                      _loadData();
+                    }
+                  },
+                  child: const Text('Save Changes',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.pureCeramicWhite)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ─── ADD ITEM MODAL ───────────────────────────────────────────
   void _showAddItemModal() {
     final titleCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
@@ -148,6 +342,10 @@ class _WishlistScreenState extends State<WishlistScreen> {
               CupertinoTextField(
                 controller: titleCtrl,
                 placeholder: 'Item Name (e.g. MacBook Pro)',
+                placeholderStyle: TextStyle(
+                  color: AppTheme.systemBlack.withOpacity(0.4),
+                ),
+                style: const TextStyle(color: AppTheme.systemBlack),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: AppTheme.pureCeramicWhite,
@@ -160,6 +358,10 @@ class _WishlistScreenState extends State<WishlistScreen> {
                 placeholder: 'Est. Cost (e.g. 1999)',
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
+                placeholderStyle: TextStyle(
+                  color: AppTheme.systemBlack.withOpacity(0.4),
+                ),
+                style: const TextStyle(color: AppTheme.systemBlack),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: AppTheme.pureCeramicWhite,
@@ -189,14 +391,14 @@ class _WishlistScreenState extends State<WishlistScreen> {
                       _items.add(newItem);
                       await _storageService.saveWishlistRaw(
                           _items.map((i) => i.toJson()).toList());
-                      if (ctx.mounted) {
-                        Navigator.of(ctx).pop();
-                      }
+                      if (ctx.mounted) Navigator.of(ctx).pop();
                       _loadData();
                     }
                   },
                   child: const Text('Add to Wishlist',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.pureCeramicWhite)),
                 ),
               ),
             ],
@@ -206,9 +408,9 @@ class _WishlistScreenState extends State<WishlistScreen> {
     );
   }
 
+  // ─── BUILD ────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    // Dynamic Liquid Balance logic
     final storage = context.watch<StorageService>();
     final txs = storage.getTransactions();
     final income = txs
@@ -217,7 +419,10 @@ class _WishlistScreenState extends State<WishlistScreen> {
     final expenses = txs
         .where((t) => t.type == TransactionType.expense)
         .fold<double>(0, (sum, i) => sum + i.amount);
-    final liquidBalance = income - expenses;
+    final savings = txs
+        .where((t) => t.type == TransactionType.savings)
+        .fold<double>(0, (sum, i) => sum + i.amount);
+    final liquidBalance = income - expenses - savings;
 
     final double capitalRequired =
         _items.where((i) => !i.isBought).fold(0.0, (sum, i) => sum + i.price);
@@ -334,6 +539,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
     );
   }
 
+  // ─── WISHLIST ITEM ROW ────────────────────────────────────────
   Widget _buildWishlistItem(WishlistItem item, double liquidBalance) {
     final bool isFunded = !item.isBought && (liquidBalance >= item.price);
     final double progress = (liquidBalance / item.price).clamp(0.0, 1.0);
@@ -461,8 +667,9 @@ class _WishlistScreenState extends State<WishlistScreen> {
       ),
     );
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+    // Wrap with GestureDetector for tap-to-edit
+    Widget tappableContent = GestureDetector(
+      onTap: () => _showEditItemModal(item),
       child: isFunded
           ? Transform.scale(
               scale: 1.02,
@@ -482,6 +689,32 @@ class _WishlistScreenState extends State<WishlistScreen> {
               ),
             )
           : content,
+    );
+
+    // Wrap with Dismissible for swipe-to-delete
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Dismissible(
+        key: ValueKey(item.id),
+        direction: DismissDirection.endToStart,
+        confirmDismiss: (direction) async {
+          await _deleteItem(item);
+          // Always return false — we handle deletion ourselves
+          // so the Dismissible doesn't auto-remove the widget
+          return false;
+        },
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 24),
+          decoration: BoxDecoration(
+            color: CupertinoColors.destructiveRed,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: const Icon(CupertinoIcons.trash_fill,
+              color: CupertinoColors.white, size: 28),
+        ),
+        child: tappableContent,
+      ),
     );
   }
 }

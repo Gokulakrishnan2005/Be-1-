@@ -70,6 +70,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
           CupertinoTextField(
             controller: _titleController,
             placeholder: 'Task Title (e.g. Call Bank)',
+            style: const TextStyle(color: AppTheme.systemBlack),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppTheme.pureCeramicWhite,

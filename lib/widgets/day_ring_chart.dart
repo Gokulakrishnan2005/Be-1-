@@ -50,7 +50,9 @@ class DayRingChart extends StatelessWidget {
       DateTime sessionStart = session.startTime.isBefore(startOfDay)
           ? startOfDay
           : session.startTime;
-      DateTime sessionEnd = session.endTime;
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+      DateTime sessionEnd =
+          session.endTime.isAfter(endOfDay) ? endOfDay : session.endTime;
       final duration = sessionEnd.difference(sessionStart).inSeconds.toDouble();
 
       if (duration > 0) {
@@ -75,9 +77,18 @@ class DayRingChart extends StatelessWidget {
       }
     }
 
-    final totalSeconds = growthSeconds + maintainSeconds + entropySeconds;
-    final hasData = totalSeconds > 0;
-    final growthRatio = hasData ? (growthSeconds / totalSeconds) * 100 : 0.0;
+    final totalTracked = growthSeconds + maintainSeconds + entropySeconds;
+    final hasData = totalTracked > 0;
+
+    // Growth ratio based on full 24 hours, not just tracked
+    const double totalPossibleSeconds = 24 * 3600;
+    final growthRatio =
+        hasData ? (growthSeconds / totalPossibleSeconds) * 100 : 0.0;
+
+    // Untracked time = 24h - tracked
+    final double untrackedSeconds = (totalPossibleSeconds - totalTracked)
+        .clamp(0.0, totalPossibleSeconds)
+        .toDouble();
 
     return SizedBox(
       height: 160,
@@ -110,6 +121,13 @@ class DayRingChart extends StatelessWidget {
                           PieChartSectionData(
                             color: AppTheme.stateEntropy,
                             value: entropySeconds,
+                            title: '',
+                            radius: 12,
+                          ),
+                        if (untrackedSeconds > 0)
+                          PieChartSectionData(
+                            color: AppTheme.voidBlack.withOpacity(0.15),
+                            value: untrackedSeconds,
                             title: '',
                             radius: 12,
                           ),

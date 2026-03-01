@@ -57,16 +57,37 @@ class _TaskItemWidgetState extends State<TaskItemWidget>
   }
 
   void _toggle() async {
-    if (_isChecked) return; // Prevent unchecking for simplicity
-
     HapticWrapper.light();
     _controller.forward(from: 0.0);
 
+    final storage = context.read<StorageService>();
+
+    if (_isChecked) {
+      // ─── UNDO: Uncheck task ──
+      setState(() {
+        _isChecked = false;
+      });
+
+      final updatedTask = TaskItem(
+        id: widget.task.id,
+        title: widget.task.title,
+        isCompleted: false,
+        isArchived: widget.task.isArchived,
+        snoozeCount: widget.task.snoozeCount,
+        createdAt: widget.task.createdAt,
+        completedAt: null,
+      );
+
+      await storage.saveTask(updatedTask);
+      widget.onToggle();
+      return;
+    }
+
+    // ─── CHECK: Normal forward toggle ──
     setState(() {
       _isChecked = true;
     });
 
-    final storage = context.read<StorageService>();
     final updatedTask = TaskItem(
       id: widget.task.id,
       title: widget.task.title,
@@ -81,6 +102,161 @@ class _TaskItemWidgetState extends State<TaskItemWidget>
     widget.onToggle();
   }
 
+  void _showEditDialog() async {
+    final titleController = TextEditingController(text: widget.task.title);
+
+    final newTitle = await showCupertinoDialog<String>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('Edit Task'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: CupertinoTextField(
+            controller: titleController,
+            placeholder: 'Task name',
+            autofocus: true,
+            style: const TextStyle(color: AppTheme.systemBlack),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Cancel'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: const Text('Save'),
+            onPressed: () => Navigator.pop(ctx, titleController.text.trim()),
+          ),
+        ],
+      ),
+    );
+
+    if (newTitle != null &&
+        newTitle.isNotEmpty &&
+        newTitle != widget.task.title) {
+      final storage = context.read<StorageService>();
+      final updatedTask = TaskItem(
+        id: widget.task.id,
+        title: newTitle,
+        isCompleted: widget.task.isCompleted,
+        isArchived: widget.task.isArchived,
+        snoozeCount: widget.task.snoozeCount,
+        createdAt: widget.task.createdAt,
+        completedAt: widget.task.completedAt,
+      );
+      await storage.saveTask(updatedTask);
+      widget.onToggle();
+    }
+  }
+
+  /// Unified confirmation dialog for both swipe directions
+  Future<bool> _confirmDismiss(DismissDirection direction) async {
+    final bool isStrike3 = widget.task.snoozeCount >= 2;
+    final storage = context.read<StorageService>();
+
+    if (direction == DismissDirection.endToStart) {
+      // ─── DELETE ───
+      HapticWrapper.heavy();
+      final confirm = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('Delete Task?'),
+          content: const Text('This action cannot be undone.'),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('Cancel',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: CupertinoColors.activeBlue)),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              child: const Text('Delete'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) return false;
+
+      var tasks = storage.getTasks();
+      tasks.removeWhere((t) => t.id == widget.task.id);
+      await storage.saveAllTasks(tasks);
+      return true;
+    }
+
+    // ─── SNOOZE (startToEnd) — with confirmation ───
+    if (isStrike3) {
+      HapticWrapper.heavy();
+      final confirm = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('Strike 3 — Delete Task?'),
+          content: const Text(
+              'This task has been snoozed 3 times. It will be removed permanently.'),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              child: const Text('Delete'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return false;
+
+      var tasks = storage.getTasks();
+      tasks.removeWhere((t) => t.id == widget.task.id);
+      await storage.saveAllTasks(tasks);
+      return true;
+    } else {
+      HapticWrapper.medium();
+      final confirm = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('Snooze Task?'),
+          content: Text(
+              'Push to tomorrow. (${widget.task.snoozeCount + 1}/3 snoozes used)'),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              child: const Text('Snooze'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return false;
+
+      final now = DateTime.now();
+      final tomorrowMidnight = DateTime(now.year, now.month, now.day + 1);
+
+      final updatedTask = TaskItem(
+        id: widget.task.id,
+        title: widget.task.title,
+        isCompleted: false,
+        isArchived: widget.task.isArchived,
+        snoozeCount: widget.task.snoozeCount + 1,
+        createdAt: tomorrowMidnight,
+        completedAt: widget.task.completedAt,
+      );
+
+      await storage.saveTask(updatedTask);
+      return true;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isStrike3 = widget.task.snoozeCount >= 2;
@@ -89,51 +265,31 @@ class _TaskItemWidgetState extends State<TaskItemWidget>
     final IconData dismissIcon =
         isStrike3 ? CupertinoIcons.trash_fill : CupertinoIcons.calendar;
 
+    // ─── 3-DAY AGING METADATA ────────────────────────────────────
+    final now = DateTime.now();
+    final daysSinceCreated = now.difference(widget.task.createdAt).inDays;
+    final remaining = 3 - daysSinceCreated;
+
+    Color agingColor = AppTheme.systemGray;
+    String? agingText;
+
+    if (!widget.task.isCompleted && daysSinceCreated > 0) {
+      if (daysSinceCreated <= 1) {
+        agingColor = AppTheme.growthGreen;
+        agingText = 'Delayed $daysSinceCreated day. $remaining days remaining.';
+      } else if (daysSinceCreated == 2) {
+        agingColor = const Color(0xFFFFCC00); // System Yellow
+        agingText = 'Delayed 2 days. $remaining day remaining.';
+      } else {
+        agingColor = CupertinoColors.systemRed;
+        agingText = 'Deadline today. Auto-archives tonight.';
+      }
+    }
+
     return Dismissible(
       key: ValueKey(widget.task.id),
       direction: DismissDirection.horizontal,
-      confirmDismiss: (direction) async {
-        if (direction == DismissDirection.endToStart) {
-          HapticWrapper.heavy();
-          final storage = context.read<StorageService>();
-          var tasks = storage.getTasks();
-          tasks.removeWhere((t) => t.id == widget.task.id);
-          await storage.saveAllTasks(tasks);
-          return true;
-        }
-
-        // Snooze Logic (startToEnd)
-        if (isStrike3) {
-          HapticWrapper.heavy();
-        } else {
-          HapticWrapper.medium();
-        }
-
-        final storage = context.read<StorageService>();
-
-        if (isStrike3) {
-          var tasks = storage.getTasks();
-          tasks.removeWhere((t) => t.id == widget.task.id);
-          await storage.saveAllTasks(tasks);
-        } else {
-          final now = DateTime.now();
-          final tomorrowMidnight = DateTime(now.year, now.month, now.day + 1);
-
-          final updatedTask = TaskItem(
-            id: widget.task.id,
-            title: widget.task.title,
-            isCompleted: false,
-            isArchived: widget.task.isArchived,
-            snoozeCount: widget.task.snoozeCount + 1,
-            createdAt: tomorrowMidnight,
-            completedAt: widget.task.completedAt,
-          );
-
-          await storage.saveTask(updatedTask);
-        }
-
-        return true;
-      },
+      confirmDismiss: _confirmDismiss,
       onDismissed: (direction) {
         if (widget.onDismissed != null) {
           widget.onDismissed!();
@@ -156,6 +312,7 @@ class _TaskItemWidgetState extends State<TaskItemWidget>
       ),
       child: GestureDetector(
         onTap: _toggle,
+        onLongPress: _showEditDialog,
         behavior: HitTestBehavior.opaque,
         child: AnimatedOpacity(
           opacity: _isChecked ? 0.4 : 1.0,
@@ -196,17 +353,33 @@ class _TaskItemWidgetState extends State<TaskItemWidget>
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Text(
-                    widget.task.title,
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: AppTheme.systemBlack,
-                      fontWeight: FontWeight.w500,
-                      decoration: _isChecked
-                          ? TextDecoration.lineThrough
-                          : TextDecoration.none,
-                      decorationThickness: 2.0,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.task.title,
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: AppTheme.systemBlack,
+                          fontWeight: FontWeight.w500,
+                          decoration: _isChecked
+                              ? TextDecoration.lineThrough
+                              : TextDecoration.none,
+                          decorationThickness: 2.0,
+                        ),
+                      ),
+                      if (agingText != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          agingText,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: agingColor,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],

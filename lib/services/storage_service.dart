@@ -7,6 +7,9 @@ import '../models/transaction.dart';
 import '../models/habit.dart';
 import '../models/task_item.dart';
 import '../models/goal.dart';
+import '../models/credential.dart';
+import '../models/journal_entry.dart';
+import '../models/place.dart';
 
 class StorageService with ChangeNotifier {
   static const String _skillsKey = 'skills_data';
@@ -18,6 +21,16 @@ class StorageService with ChangeNotifier {
   static const String _wishlistKey = 'wishlist_data';
   static const String _activeSkillIdKey = 'active_skill_id';
   static const String _activeStartTimeKey = 'active_start_time';
+  static const String _strictModeKey = 'strict_mode';
+  static const String _genesisCompleteKey = 'genesis_complete';
+  static const String _userNameKey = 'user_name';
+  static const String _userDobKey = 'user_dob';
+  static const String _userGenderKey = 'user_gender';
+  static const String _onboardingCompleteKey = 'onboarding_complete';
+  static const String _vaultPinKey = 'vault_pin';
+  static const String _credentialsKey = 'credentials_data';
+  static const String _journalKey = 'journal_data';
+  static const String _placesKey = 'places_data';
 
   final SharedPreferences _prefs;
 
@@ -33,7 +46,26 @@ class StorageService with ChangeNotifier {
     final String? data = _prefs.getString(_skillsKey);
     if (data == null) return [];
     List<dynamic> jsonList = jsonDecode(data);
-    return jsonList.map((json) => Skill.fromJson(json)).toList();
+    var skills = jsonList.map((json) => Skill.fromJson(json)).toList();
+    skills.sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    return skills;
+  }
+
+  Future<void> updateSkillOrder(List<Skill> orderedSkills) async {
+    // Re-assign orderIndex based on the new list position
+    for (int i = 0; i < orderedSkills.length; i++) {
+      orderedSkills[i] = Skill(
+        id: orderedSkills[i].id,
+        name: orderedSkills[i].name,
+        iconName: orderedSkills[i].iconName,
+        targetHours: orderedSkills[i].targetHours,
+        category: orderedSkills[i].category,
+        orderIndex: i, // Ensure deterministic integer
+      );
+    }
+    await _prefs.setString(
+        _skillsKey, jsonEncode(orderedSkills.map((s) => s.toJson()).toList()));
+    notifyListeners();
   }
 
   Future<void> saveSkill(Skill skill) async {
@@ -42,7 +74,16 @@ class StorageService with ChangeNotifier {
     if (index >= 0) {
       skills[index] = skill;
     } else {
-      skills.add(skill);
+      // New skills go to the end
+      final newSkillWithOrder = Skill(
+        id: skill.id,
+        name: skill.name,
+        iconName: skill.iconName,
+        targetHours: skill.targetHours,
+        category: skill.category,
+        orderIndex: skills.length,
+      );
+      skills.add(newSkillWithOrder);
     }
     await _prefs.setString(
         _skillsKey, jsonEncode(skills.map((s) => s.toJson()).toList()));
@@ -80,6 +121,14 @@ class StorageService with ChangeNotifier {
   Future<void> deleteSessionsForSkill(String skillId) async {
     List<Session> sessions = getSessions();
     sessions.removeWhere((s) => s.skillId == skillId);
+    await _prefs.setString(
+        _sessionsKey, jsonEncode(sessions.map((s) => s.toJson()).toList()));
+    notifyListeners();
+  }
+
+  Future<void> deleteSession(String sessionId) async {
+    List<Session> sessions = getSessions();
+    sessions.removeWhere((s) => s.id == sessionId);
     await _prefs.setString(
         _sessionsKey, jsonEncode(sessions.map((s) => s.toJson()).toList()));
     notifyListeners();
@@ -156,6 +205,36 @@ class StorageService with ChangeNotifier {
   }
 
   Future<void> saveAllHabits(List<Habit> habits) async {
+    await _prefs.setString(
+        _habitsKey, jsonEncode(habits.map((h) => h.toJson()).toList()));
+    notifyListeners();
+  }
+
+  Future<void> archiveHabit(String id) async {
+    List<Habit> habits = getHabits();
+    final index = habits.indexWhere((h) => h.id == id);
+    if (index < 0) return;
+
+    final h = habits[index];
+    habits[index] = Habit(
+      id: h.id,
+      name: h.name,
+      iconCode: h.iconCode,
+      isCompleted: h.isCompleted,
+      streak: h.streak,
+      createdAt: h.createdAt,
+      isArchived: true,
+      archivedAt: DateTime.now(),
+      completedDates: h.completedDates,
+    );
+    await _prefs.setString(
+        _habitsKey, jsonEncode(habits.map((h) => h.toJson()).toList()));
+    notifyListeners();
+  }
+
+  Future<void> deleteHabitPermanently(String id) async {
+    List<Habit> habits = getHabits();
+    habits.removeWhere((h) => h.id == id);
     await _prefs.setString(
         _habitsKey, jsonEncode(habits.map((h) => h.toJson()).toList()));
     notifyListeners();
@@ -247,6 +326,142 @@ class StorageService with ChangeNotifier {
   Future<void> clearActiveTimerState() async {
     await _prefs.remove(_activeSkillIdKey);
     await _prefs.remove(_activeStartTimeKey);
+    notifyListeners();
+  }
+
+  // Strict 24/7 Mode
+  bool getStrictMode() {
+    return _prefs.getBool(_strictModeKey) ?? true;
+  }
+
+  Future<void> setStrictMode(bool value) async {
+    await _prefs.setBool(_strictModeKey, value);
+    notifyListeners();
+  }
+
+  // Genesis State
+  bool isGenesisComplete() {
+    return _prefs.getBool(_genesisCompleteKey) ?? false;
+  }
+
+  Future<void> setGenesisComplete() async {
+    await _prefs.setBool(_genesisCompleteKey, true);
+  }
+
+  // ─── ONBOARDING / IDENTITY ──────────────────────────────────
+  String getUserName() => _prefs.getString(_userNameKey) ?? '';
+  Future<void> setUserName(String name) async {
+    await _prefs.setString(_userNameKey, name);
+    notifyListeners();
+  }
+
+  String? getUserDob() => _prefs.getString(_userDobKey);
+  Future<void> setUserDob(DateTime dob) async {
+    await _prefs.setString(_userDobKey, dob.toIso8601String());
+    notifyListeners();
+  }
+
+  String getUserGender() => _prefs.getString(_userGenderKey) ?? '';
+  Future<void> setUserGender(String gender) async {
+    await _prefs.setString(_userGenderKey, gender);
+  }
+
+  bool isOnboardingComplete() =>
+      _prefs.getBool(_onboardingCompleteKey) ?? false;
+  Future<void> setOnboardingComplete() async {
+    await _prefs.setBool(_onboardingCompleteKey, true);
+  }
+
+  // ─── VAULT ───────────────────────────────────────────────────
+  String? getVaultPin() => _prefs.getString(_vaultPinKey);
+  Future<void> setVaultPin(String pin) async {
+    await _prefs.setString(_vaultPinKey, pin);
+  }
+
+  List<Credential> getCredentials() {
+    final raw = _prefs.getString(_credentialsKey);
+    if (raw == null) return [];
+    return (jsonDecode(raw) as List)
+        .map((e) => Credential.fromJson(e))
+        .toList();
+  }
+
+  Future<void> saveCredential(Credential cred) async {
+    var list = getCredentials();
+    final idx = list.indexWhere((c) => c.id == cred.id);
+    if (idx >= 0) {
+      list[idx] = cred;
+    } else {
+      list.add(cred);
+    }
+    await _prefs.setString(
+        _credentialsKey, jsonEncode(list.map((c) => c.toJson()).toList()));
+    notifyListeners();
+  }
+
+  Future<void> deleteCredential(String id) async {
+    var list = getCredentials();
+    list.removeWhere((c) => c.id == id);
+    await _prefs.setString(
+        _credentialsKey, jsonEncode(list.map((c) => c.toJson()).toList()));
+    notifyListeners();
+  }
+
+  // ─── JOURNAL ─────────────────────────────────────────────────
+  List<JournalEntry> getJournalEntries() {
+    final raw = _prefs.getString(_journalKey);
+    if (raw == null) return [];
+    return (jsonDecode(raw) as List)
+        .map((e) => JournalEntry.fromJson(e))
+        .toList();
+  }
+
+  Future<void> saveJournalEntry(JournalEntry entry) async {
+    var list = getJournalEntries();
+    final idx = list.indexWhere((e) => e.id == entry.id);
+    if (idx >= 0) {
+      list[idx] = entry;
+    } else {
+      list.add(entry);
+    }
+    await _prefs.setString(
+        _journalKey, jsonEncode(list.map((e) => e.toJson()).toList()));
+    notifyListeners();
+  }
+
+  Future<void> deleteJournalEntry(String id) async {
+    var list = getJournalEntries();
+    list.removeWhere((e) => e.id == id);
+    await _prefs.setString(
+        _journalKey, jsonEncode(list.map((e) => e.toJson()).toList()));
+    notifyListeners();
+  }
+
+  // ─── PLACES (Experience Board) ───────────────────────────────
+  List<Place> getPlaces() {
+    final raw = _prefs.getString(_placesKey);
+    if (raw == null) return [];
+    return (jsonDecode(raw) as List).map((e) => Place.fromJson(e)).toList();
+  }
+
+  Future<void> savePlace(Place place) async {
+    var list = getPlaces();
+    final idx = list.indexWhere((p) => p.id == place.id);
+    if (idx >= 0) {
+      list[idx] = place;
+    } else {
+      list.add(place);
+    }
+    await _prefs.setString(
+        _placesKey, jsonEncode(list.map((p) => p.toJson()).toList()));
+    notifyListeners();
+  }
+
+  Future<void> deletePlace(String id) async {
+    var list = getPlaces();
+    list.removeWhere((p) => p.id == id);
+    await _prefs.setString(
+        _placesKey, jsonEncode(list.map((p) => p.toJson()).toList()));
     notifyListeners();
   }
 }

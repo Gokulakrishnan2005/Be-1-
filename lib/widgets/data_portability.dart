@@ -58,8 +58,9 @@ class DataPortability extends StatelessWidget {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
 
     if (data?.text == null) {
-      if (context.mounted)
+      if (context.mounted) {
         _showDialog(context, 'Import Failed', 'No text found in clipboard.');
+      }
       return;
     }
 
@@ -69,15 +70,17 @@ class DataPortability extends StatelessWidget {
       // carefully merging or overwriting based on user preference.
       // For this demo, we validate the format roughly.
       if (decoded is Map && decoded.containsKey('skills')) {
-        if (context.mounted)
+        if (context.mounted) {
           _showDialog(context, 'Imported',
               'Mock data import successful! Please restart the app.');
+        }
       } else {
         throw const FormatException('Invalid JSON format for 1% Better app.');
       }
     } catch (e) {
-      if (context.mounted)
+      if (context.mounted) {
         _showDialog(context, 'Import Failed', 'Invalid JSON from clipboard.');
+      }
     }
   }
 

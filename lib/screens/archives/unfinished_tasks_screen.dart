@@ -1,8 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/task_item.dart';
 import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/haptic_wrapper.dart';
 
 class UnfinishedTasksScreen extends StatelessWidget {
   const UnfinishedTasksScreen({super.key});
@@ -48,25 +50,57 @@ class UnfinishedTasksScreen extends StatelessWidget {
                             color: AppTheme.systemGray.withOpacity(0.1)),
                       ),
                       padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Text(
-                            task.title,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.systemGray, // Ghostly muted text
-                              decoration: TextDecoration
-                                  .lineThrough, // Represents past failure to complete
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  task.title,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.systemGray,
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Missed on ${task.createdAt.month}/${task.createdAt.day}/${task.createdAt.year}',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: AppTheme.systemGray.withOpacity(0.8),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Missed on ${task.createdAt.month}/${task.createdAt.day}/${task.createdAt.year}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppTheme.systemGray.withOpacity(0.8),
+                          // ─── RECYCLE BUTTON ────────────────────────
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: () async {
+                              HapticWrapper.medium();
+                              final now = DateTime.now();
+                              final tomorrow =
+                                  DateTime(now.year, now.month, now.day + 1);
+
+                              final recycledTask = TaskItem(
+                                id: task.id,
+                                title: task.title,
+                                isCompleted: false,
+                                isArchived: false,
+                                snoozeCount: 0,
+                                createdAt: tomorrow,
+                                completedAt: null,
+                              );
+
+                              await storage.saveTask(recycledTask);
+                            },
+                            child: const Icon(
+                              CupertinoIcons.arrow_counterclockwise,
+                              color: AppTheme.focusBlue,
+                              size: 24,
                             ),
                           ),
                         ],

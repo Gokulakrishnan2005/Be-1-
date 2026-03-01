@@ -48,13 +48,19 @@ class Goal {
     }
   }
 
-  Goal copyWith({double? newCurrentValue, GoalStatus? newStatus}) {
+  Goal copyWith({
+    String? newTitle,
+    double? newTargetValue,
+    double? newCurrentValue,
+    String? newUnit,
+    GoalStatus? newStatus,
+  }) {
     return Goal(
       id: id,
-      title: title,
-      targetValue: targetValue,
+      title: newTitle ?? title,
+      targetValue: newTargetValue ?? targetValue,
       currentValue: newCurrentValue ?? currentValue,
-      unit: unit,
+      unit: newUnit ?? unit,
       type: type,
       createdAt: createdAt,
       expiresAt: expiresAt,

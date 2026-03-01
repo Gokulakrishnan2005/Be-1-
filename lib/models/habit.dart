@@ -5,6 +5,9 @@ class Habit {
   final bool isCompleted;
   final int streak;
   final DateTime createdAt;
+  final bool isArchived;
+  final DateTime? archivedAt;
+  final List<String> completedDates; // ISO date strings: '2026-03-01'
 
   Habit({
     required this.id,
@@ -13,6 +16,9 @@ class Habit {
     this.isCompleted = false,
     this.streak = 0,
     DateTime? createdAt,
+    this.isArchived = false,
+    this.archivedAt,
+    this.completedDates = const [],
   }) : createdAt = createdAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
@@ -22,6 +28,9 @@ class Habit {
         'isCompleted': isCompleted,
         'streak': streak,
         'createdAt': createdAt.toIso8601String(),
+        'isArchived': isArchived,
+        if (archivedAt != null) 'archivedAt': archivedAt!.toIso8601String(),
+        'completedDates': completedDates,
       };
 
   factory Habit.fromJson(Map<String, dynamic> json) => Habit(
@@ -32,6 +41,13 @@ class Habit {
         streak: json['streak'] ?? 0,
         createdAt: json['createdAt'] != null
             ? DateTime.parse(json['createdAt'])
-            : DateTime.now(), // Fallback for old data
+            : DateTime.now(),
+        isArchived: json['isArchived'] ?? false,
+        archivedAt: json['archivedAt'] != null
+            ? DateTime.parse(json['archivedAt'])
+            : null,
+        completedDates: json['completedDates'] != null
+            ? List<String>.from(json['completedDates'])
+            : [],
       );
 }

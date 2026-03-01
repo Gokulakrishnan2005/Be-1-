@@ -56,11 +56,14 @@ class ChronoService {
 
   static Future<void> _sweepDailyTasksAndHabits(
       StorageService storage, DateTime now) async {
-    // 1. Archive tasks created on preceding days instead of purging
+    // 1. Archive tasks older than 3 days instead of purging
     List<TaskItem> tasks = storage.getTasks();
     bool needsTaskSave = false;
     for (int i = 0; i < tasks.length; i++) {
-      if (!_isSameDay(tasks[i].createdAt, now) && !tasks[i].isArchived) {
+      final daysSinceCreated = now.difference(tasks[i].createdAt).inDays;
+      if (daysSinceCreated >= 3 &&
+          !tasks[i].isArchived &&
+          !tasks[i].isCompleted) {
         tasks[i] = TaskItem(
           id: tasks[i].id,
           title: tasks[i].title,
@@ -75,14 +78,23 @@ class ChronoService {
     }
     if (needsTaskSave) storage.saveAllTasks(tasks);
 
-    // 2. Reset Habits & Compute Streaks
+    // 2. Reset Habits & Compute Streaks & Record Completion History
     List<Habit> habits = storage.getHabits();
     bool needsHabitSave = false;
 
+    // Yesterday's date string for completion history
+    final yesterday = now.subtract(const Duration(days: 1));
+    final yesterdayStr =
+        '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
+
     for (int i = 0; i < habits.length; i++) {
       if (habits[i].isCompleted) {
-        // Technically missed yesterday if it's not completed by today's sweep,
-        // Wait, if it IS completed, it means they did it yesterday. So Streak is maintained. Reset completed flag.
+        // Record yesterday's completion in history
+        final updatedDates = List<String>.from(habits[i].completedDates);
+        if (!updatedDates.contains(yesterdayStr)) {
+          updatedDates.add(yesterdayStr);
+        }
+
         habits[i] = Habit(
           id: habits[i].id,
           name: habits[i].name,
@@ -90,6 +102,9 @@ class ChronoService {
           isCompleted: false, // Reset!
           streak: habits[i].streak + 1, // Passed!
           createdAt: habits[i].createdAt,
+          isArchived: habits[i].isArchived,
+          archivedAt: habits[i].archivedAt,
+          completedDates: updatedDates,
         );
       } else {
         // Did NOT complete it. Streak broken.
@@ -100,6 +115,9 @@ class ChronoService {
           isCompleted: false,
           streak: 0, // Failed!
           createdAt: habits[i].createdAt,
+          isArchived: habits[i].isArchived,
+          archivedAt: habits[i].archivedAt,
+          completedDates: habits[i].completedDates,
         );
       }
       needsHabitSave = true;

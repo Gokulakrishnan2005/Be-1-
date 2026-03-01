@@ -80,6 +80,11 @@ class _AddSkillModalState extends State<AddSkillModal> {
           CupertinoTextField(
             controller: _nameController,
             placeholder: 'Skill Name (e.g. Guitar)',
+            placeholderStyle: TextStyle(
+              color: AppTheme.systemBlack
+                  .withOpacity(0.4), // Adjust opacity here for intensity
+            ),
+            style: const TextStyle(color: AppTheme.systemBlack),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppTheme.pureCeramicWhite,
@@ -92,6 +97,11 @@ class _AddSkillModalState extends State<AddSkillModal> {
             controller: _hoursController,
             placeholder: 'Target Hours (default: 10000)',
             keyboardType: TextInputType.number,
+            placeholderStyle: TextStyle(
+              color: AppTheme.systemBlack
+                  .withOpacity(0.4), // Adjust opacity here for intensity
+            ),
+            style: const TextStyle(color: AppTheme.systemBlack),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppTheme.pureCeramicWhite,
@@ -122,8 +132,10 @@ class _AddSkillModalState extends State<AddSkillModal> {
                     style: TextStyle(
                       color: _selectedCategory == 'GROWTH'
                           ? AppTheme.pureCeramicWhite
-                          : AppTheme.systemBlack,
-                      fontWeight: FontWeight.bold,
+                          : AppTheme.systemBlack.withOpacity(0.9),
+                      fontWeight: _selectedCategory == 'GROWTH'
+                          ? FontWeight.w900
+                          : FontWeight.w600,
                       fontSize: 13,
                     ),
                   ),
@@ -136,8 +148,10 @@ class _AddSkillModalState extends State<AddSkillModal> {
                     style: TextStyle(
                       color: _selectedCategory == 'MAINTENANCE'
                           ? AppTheme.pureCeramicWhite
-                          : AppTheme.systemBlack,
-                      fontWeight: FontWeight.bold,
+                          : AppTheme.systemBlack.withOpacity(0.9),
+                      fontWeight: _selectedCategory == 'MAINTENANCE'
+                          ? FontWeight.w900
+                          : FontWeight.w600,
                       fontSize: 13,
                     ),
                   ),
@@ -150,8 +164,10 @@ class _AddSkillModalState extends State<AddSkillModal> {
                     style: TextStyle(
                       color: _selectedCategory == 'ENTROPY'
                           ? AppTheme.pureCeramicWhite
-                          : AppTheme.systemBlack,
-                      fontWeight: FontWeight.bold,
+                          : AppTheme.systemBlack.withOpacity(0.4),
+                      fontWeight: _selectedCategory == 'ENTROPY'
+                          ? FontWeight.w900
+                          : FontWeight.w600,
                       fontSize: 13,
                     ),
                   ),
@@ -208,11 +224,13 @@ class _AddSkillModalState extends State<AddSkillModal> {
           SizedBox(
             width: double.infinity,
             child: CupertinoButton(
-              color: AppTheme.focusBlue,
+              color: AppTheme.systemBlack,
               borderRadius: BorderRadius.circular(16),
               onPressed: _saveSkill,
               child: const Text('Add Skill',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.pureCeramicWhite)),
             ),
           ),
         ],
